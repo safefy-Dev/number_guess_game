@@ -23,6 +23,11 @@ def get_current_user(request: Request):
     session_id = request.cookies.get("session_id")
     return sessions.get(session_id)
 
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return RedirectResponse("/play")
+
+
 # ----------------- Register
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
