@@ -130,8 +130,7 @@ async def room_guess(room_id: str = Form(...), user_id: str = Form(...), usernam
     if len(guess) != len(secret):
         return {"error": f"Your guess must have exactly {len(secret)} digits."}
 
-    # Same logic as single player
-    numbers_correct, positions_correct = calculate_guess(secret, guess, strict=False)
+    numbers_correct, positions_correct = calculate_guess(secret, guess)
 
     record_data = supabase.table("room_guesses").select("*").eq("room_id", room_id).eq("user_id", user_id).execute().data
     if not record_data:
@@ -151,21 +150,40 @@ async def room_guess(room_id: str = Form(...), user_id: str = Form(...), usernam
         "completed": completed
     }).eq("id", record["id"]).execute()
 
-    if completed and room["winning_type"] == "fastest" and not room["is_completed"]:
-        supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
+    ## 📌 Check for winner based on mode
+    if room["winning_type"] == "fastest":
+        if completed and not room["is_completed"]:
+            supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
 
-    if completed and room["mode"] == "bot":
-        existing_lb = supabase.table("leaderboard").select("*").eq("username", username).execute().data
-        if not existing_lb:
-            supabase.table("leaderboard").insert({"username": username, "best_turns": turns}).execute()
+    elif room["winning_type"] == "lowest":
+        all_players = supabase.table("room_guesses").select("*").eq("room_id", room_id).execute().data
+        finished_players = [p for p in all_players if p["completed"]]
+        
+        # Check if all players are done
+        if len(finished_players) == len(all_players):
+            supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
         else:
-            best_turns = existing_lb[0]["best_turns"]
-            if turns < best_turns:
-                supabase.table("leaderboard").update({"best_turns": turns}).eq("username", username).execute()
+            # Or if any player's turns now exceed lowest completed turns
+            completed_turn_counts = [p["turns"] for p in finished_players]
+            if completed_turn_counts:
+                lowest_turns = min(completed_turn_counts)
+                for p in all_players:
+                    if not p["completed"] and p["turns"] > lowest_turns:
+                        # This player has no way to beat lowest, so we mark completed
+                        supabase.table("room_guesses").update({"completed": True}).eq("id", p["id"]).execute()
+                
+                # Then check again if now all done
+                updated_all_players = supabase.table("room_guesses").select("*").eq("room_id", room_id).execute().data
+                if all(p["completed"] for p in updated_all_players):
+                    supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
+
+    ## ✅ Insert to leaderboard only if bot mode
+        best_turns = existing_lb[0]["best_turns"]
+        if turns < best_turns:
+            supabase.table("leaderboard").update({"best_turns": turns}).eq("username", username).execute()
 
     current_room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
-    return {"numbers_correct": numbers_correct, "positions_correct": positions_correct, "turns": turns,
-            "completed": completed, "room_completed": current_room["is_completed"]}
+    return {"numbers_correct": numbers_correct, "positions_correct": positions_correct, "turns": turns, "completed": completed, "room_completed": current_room["is_completed"]}
 
 # ----------------- Multiplayer management
 @app.post("/create_room")
