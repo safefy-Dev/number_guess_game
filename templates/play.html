@@ -146,28 +146,40 @@ async function startSingle(){
 }
 
 async function makeGuess(type){
-    if(currentGuess.length!==requiredLength){ alert(`Guess must be ${requiredLength} digits.`); return;}
+    if(currentGuess.length !== requiredLength){
+        alert(`Guess must be ${requiredLength} digits.`); return;
+    }
     if(type==="single"){
-        const form=new FormData();
-        form.append("game_id",gameId);form.append("guess",currentGuess);
-        const res=await fetch("/guess",{method:"POST",body:form});const data=await res.json();
-        if(data.error){alert(data.error);return;}
-        let li=document.createElement("li");li.textContent=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
+        const form = new FormData();
+        form.append("game_id", gameId);
+        form.append("guess", currentGuess);
+        const res = await fetch("/guess", {method:"POST", body:form});
+        const data = await res.json();
+        if(data.error){ alert(data.error); return; }
+        let li = document.createElement("li");
+        li.textContent = `Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
         document.getElementById("spHistory").appendChild(li);
         if(data.completed) alert(`🎉 You guessed in ${data.turns} turns!`);
         clearGuess("single");
-    }else{
-        const form=new FormData();
-        form.append("room_id",roomId);form.append("user_id",userId);form.append("guess",currentGuess);
-        const res=await fetch("/room_guess",{method:"POST",body:form});const data=await res.json();
-        if(data.error){alert(data.error);return;}
-        let li=document.createElement("li");li.textContent=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
+    } else {
+        const form = new FormData();
+        form.append("room_id", roomId);
+        form.append("user_id", userId);
+        form.append("username", username); // ✅ This fixes 422
+        form.append("guess", currentGuess);
+
+        const res = await fetch("/room_guess", {method:"POST", body:form});
+        const data = await res.json();
+        if(data.error){ alert(data.error); return; }
+        let li = document.createElement("li");
+        li.textContent = `Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
         document.getElementById("mpHistory").appendChild(li);
         if(data.completed) alert(`🎉 You guessed it in ${data.turns} turns!`);
         if(data.room_completed) showSummary();
         clearGuess("multi");
     }
 }
+
 async function createRoom(){
     const form=new FormData();
     form.append("user_id",userId);
