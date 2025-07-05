@@ -94,19 +94,17 @@ async def start_game(num_digits: int = Form(...), request: Request = None):
     }).execute()
     return {"game_id": game_id}
 
-# ----------------- Single Player
+# ----------------- Single Player Guess
 @app.post("/guess")
 async def guess(game_id: str = Form(...), guess: str = Form(...), request: Request = None):
     user_id = get_current_user(request)
     game = supabase.table("games").select("*").eq("id", game_id).single().execute().data
     secret = game["secret_number"]
 
-    # Enforce length match
     if len(guess) != len(secret):
         return {"error": f"Your guess must have exactly {len(secret)} digits."}
 
     numbers_correct, positions_correct = calculate_guess(secret, guess, strict=False)
-
     turns = (game["turns"] or 0) + 1
     completed = (positions_correct == len(secret))
 
@@ -123,8 +121,7 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
     }).eq("id", game_id).execute()
     return {"numbers_correct": numbers_correct,"positions_correct": positions_correct,"completed": completed,"turns": turns}
 
-
-# ----------------- Multiplayer
+# ----------------- Multiplayer Guess
 @app.post("/room_guess")
 async def room_guess(room_id: str = Form(...), user_id: str = Form(...), username: str = Form(...), guess: str = Form(...)):
     room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
@@ -133,7 +130,8 @@ async def room_guess(room_id: str = Form(...), user_id: str = Form(...), usernam
     if len(guess) != len(secret):
         return {"error": f"Your guess must have exactly {len(secret)} digits."}
 
-    numbers_correct, positions_correct = calculate_guess(secret, guess)
+    # Same logic as single player
+    numbers_correct, positions_correct = calculate_guess(secret, guess, strict=False)
 
     record_data = supabase.table("room_guesses").select("*").eq("room_id", room_id).eq("user_id", user_id).execute().data
     if not record_data:
@@ -156,64 +154,34 @@ async def room_guess(room_id: str = Form(...), user_id: str = Form(...), usernam
     if completed and room["winning_type"] == "fastest" and not room["is_completed"]:
         supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
 
-    # ✅ Insert into leaderboard if versus bot mode
     if completed and room["mode"] == "bot":
         existing_lb = supabase.table("leaderboard").select("*").eq("username", username).execute().data
         if not existing_lb:
-            supabase.table("leaderboard").insert({
-                "username": username,
-                "best_turns": turns
-            }).execute()
+            supabase.table("leaderboard").insert({"username": username, "best_turns": turns}).execute()
         else:
             best_turns = existing_lb[0]["best_turns"]
             if turns < best_turns:
                 supabase.table("leaderboard").update({"best_turns": turns}).eq("username", username).execute()
 
     current_room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
-    return {"numbers_correct": numbers_correct, "positions_correct": positions_correct, "turns": turns, "completed": completed, "room_completed": current_room["is_completed"]}
+    return {"numbers_correct": numbers_correct, "positions_correct": positions_correct, "turns": turns,
+            "completed": completed, "room_completed": current_room["is_completed"]}
 
-
+# ----------------- Multiplayer management
 @app.post("/create_room")
-async def create_room(
-    user_id: str = Form(...),
-    username: str = Form(...),
-    mode: str = Form(...),
-    num_digits: int = Form(...),
-    winning_type: str = Form(...),
-    secret_number: str = Form(None)
-):
+async def create_room(user_id: str = Form(...), username: str = Form(...), mode: str = Form(...),
+                      num_digits: int = Form(...), winning_type: str = Form(...), secret_number: str = Form(None)):
     room_code = generate_room_code()
-    if mode == "bot":
-        secret = ''.join([str(random.randint(0,9)) for _ in range(num_digits)])
-    else:
-        secret = secret_number
-
-    # Insert the room into Supabase
+    secret = ''.join([str(random.randint(0,9)) for _ in range(num_digits)]) if mode == "bot" else secret_number
     room = supabase.table("rooms").insert({
-        "room_code": room_code,
-        "mode": mode,
-        "created_by": user_id,
-        "secret_number": secret,
-        "num_digits": num_digits,
-        "winning_type": winning_type
+        "room_code": room_code, "mode": mode, "created_by": user_id,
+        "secret_number": secret, "num_digits": num_digits, "winning_type": winning_type
     }).execute().data[0]
-
-    # Also immediately register the creator into room_guesses
     supabase.table("room_guesses").insert({
-        "room_id": room["id"],
-        "user_id": user_id,
-        "username": username,
-        "turns": 0,
-        "completed": False
+        "room_id": room["id"], "user_id": user_id, "username": username,
+        "turns": 0, "completed": False
     }).execute()
-
-    # Return full room object so JavaScript can do:
-    #   roomId = data.room.id;
-    #   roomCode = data.room.room_code;
-    #   requiredLength = data.room.num_digits;
     return {"room": room}
-
-
 
 @app.post("/join_room")
 async def join_room(room_code: str = Form(...), user_id: str = Form(...), username: str = Form(...)):
@@ -221,16 +189,10 @@ async def join_room(room_code: str = Form(...), user_id: str = Form(...), userna
     existing = supabase.table("room_guesses").select("*").eq("room_id", room["id"]).eq("user_id", user_id).execute().data
     if not existing:
         supabase.table("room_guesses").insert({
-            "room_id": room["id"],
-            "user_id": user_id,
-            "username": username,
-            "turns": 0,
-            "completed": False,
-            "numbers_correct": 0,
-            "positions_correct": 0
+            "room_id": room["id"], "user_id": user_id, "username": username,
+            "turns": 0, "completed": False, "numbers_correct": 0, "positions_correct": 0
         }).execute()
     return {"room": room}
-
 
 @app.get("/room_status")
 async def room_status(room_id: str):
@@ -242,25 +204,19 @@ async def room_status(room_id: str):
 
 @app.get("/leaderboard")
 async def leaderboard_api():
-    leaderboard = supabase.table("leaderboard").select("*").order("best_turns").limit(10).execute().data
-    return leaderboard
+    return supabase.table("leaderboard").select("*").order("best_turns").limit(10).execute().data
 
 @app.post("/send_message")
 async def send_message(room_id: str = Form(...), user_id: str = Form(...), username: str = Form(...), message: str = Form(...)):
     supabase.table("room_chat").insert({
-        "room_id": room_id,
-        "user_id": user_id,
-        "username": username,
-        "message": message
+        "room_id": room_id, "user_id": user_id, "username": username, "message": message
     }).execute()
     return {"status": "ok"}
 
 @app.get("/get_messages")
 async def get_messages(room_id: str):
-    msgs = supabase.table("room_chat").select("*").eq("room_id", room_id).order("created_at").execute().data
-    return msgs
+    return supabase.table("room_chat").select("*").eq("room_id", room_id).order("created_at").execute().data
 
 @app.get("/get_room_summary")
 async def get_room_summary(room_id: str):
-    players = supabase.table("room_guesses").select("*").eq("room_id", room_id).order("turns").execute().data
-    return players
+    return supabase.table("room_guesses").select("*").eq("room_id", room_id).order("turns").execute().data
