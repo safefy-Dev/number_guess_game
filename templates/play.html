@@ -170,15 +170,23 @@ async function makeGuess(type){
 }
 async function createRoom(){
     const form=new FormData();
-    form.append("user_id",userId);form.append("username",username);
+    form.append("user_id",userId);
+    form.append("username",username);
     form.append("mode",document.getElementById("mode").value);
     form.append("num_digits",document.getElementById("numDigits").value);
     form.append("winning_type",document.getElementById("winningType").value);
-    if(document.getElementById("mode").value==="2player")form.append("secret_number",document.getElementById("secretNumber").value);
-    const res=await fetch("/create_room",{method:"POST",body:form});const data=await res.json();
-    roomId=data.room_id;roomCode=data.room_code;requiredLength=parseInt(document.getElementById("numDigits").value);
-    document.getElementById("showRoomCode").textContent=roomCode;startMulti();
+    if(document.getElementById("mode").value==="2player"){
+        form.append("secret_number",document.getElementById("secretNumber").value);
+    }
+    const res=await fetch("/create_room",{method:"POST",body:form});
+    const data=await res.json();
+    roomId = data.room.id;
+    roomCode = data.room.room_code;
+    requiredLength = data.room.num_digits;
+    document.getElementById("showRoomCode").textContent = roomCode;
+    startMulti();
 }
+
 async function joinRoom(){
     const form=new FormData();
     form.append("room_code",document.getElementById("roomCode").value);
