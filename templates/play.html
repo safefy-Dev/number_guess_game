@@ -2,212 +2,161 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Number Guess Game</title>
+    <title>Multiplayer Number Guess + Chat</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 1rem;
-            max-width: 600px;
-            margin: auto;
-            background: #fdf6e3;
-        }
-        h2, h3 {
-            text-align: center;
-        }
-
-        .torn-paper {
-            background: #fffdf6;
-            padding: 1rem;
-            margin: 1.5rem 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            position: relative;
-            overflow: hidden;
-        }
-        .torn-paper:before, .torn-paper:after {
-            content: "";
-            position: absolute;
-            width: 100%;
-            height: 20px;
-            left: 0;
-            background: #fffdf6;
-            z-index: 1;
-        }
-        .torn-paper:before {
-            top: -10px;
-            clip-path: polygon(0% 100%, 10% 0%, 20% 100%, 30% 0%, 40% 100%, 50% 0%, 60% 100%, 70% 0%, 80% 100%, 90% 0%, 100% 100%);
-        }
-        .torn-paper:after {
-            bottom: -10px;
-            clip-path: polygon(0% 0%, 10% 100%, 20% 0%, 30% 100%, 40% 0%, 50% 100%, 60% 0%, 70% 100%, 80% 0%, 90% 100%, 100% 0%);
-        }
-
-        .keypad {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin: 1rem 0;
-        }
-        .keypad button {
-            width: 60px;
-            height: 60px;
-            margin: 5px;
-            font-size: 1.5rem;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 10px;
-        }
-        .guess-display {
-            font-size: 2rem;
-            text-align: center;
-            margin: 1rem 0;
-            min-height: 2.5rem;
-        }
-        ul {
-            list-style: none;
-            padding: 0;
-        }
-        li {
-            margin: 0.3rem 0;
-            background: #eee;
-            padding: 0.4rem;
-            border-radius: 5px;
-        }
-        .clear-btn {
-            background: #e74c3c;
-        }
+        body { font-family: Arial, sans-serif; padding:1rem; max-width:700px; margin:auto; background:#fdf6e3;}
+        h2,h3{ text-align:center;}
+        .torn-paper { background:#fffdf6; padding:1rem; margin:1.5rem 0; border:1px solid #ccc; border-radius:5px; box-shadow:0 4px 8px rgba(0,0,0,0.15); position:relative; overflow:hidden;}
+        .torn-paper:before, .torn-paper:after { content:""; position:absolute; width:100%; height:20px; left:0; background:#fffdf6; z-index:1;}
+        .torn-paper:before { top:-10px; clip-path:polygon(0% 100%,10% 0%,20% 100%,30% 0%,40% 100%,50% 0%,60% 100%,70% 0%,80% 100%,90% 0%,100% 100%);}
+        .torn-paper:after { bottom:-10px; clip-path:polygon(0% 0%,10% 100%,20% 0%,30% 100%,40% 0%,50% 100%,60% 0%,70% 100%,80% 0%,90% 100%,100% 0%);}
+        .keypad { display:flex; flex-wrap:wrap; justify-content:center; margin:1rem 0;}
+        .keypad button{ width:60px;height:60px;margin:5px;font-size:1.5rem;background:#3498db;color:white;border:none;border-radius:10px;}
+        .guess-display{ font-size:2rem; text-align:center; margin:1rem 0; min-height:2.5rem;}
+        ul{list-style:none;padding:0;} li{margin:0.3rem 0;background:#eee;padding:0.4rem;border-radius:5px;}
+        .clear-btn{background:#e74c3c;}
     </style>
 </head>
 <body>
 
-<h2>🎯 Number Guess Game & Leaderboard</h2>
+<h2>🎯 Multiplayer Number Guess + Chat</h2>
 
-<div class="torn-paper">
-    <h3>Start New Game</h3>
-    <input type="number" id="digitCount" min="3" max="8" value="4">
-    <button id="startBtn">Start Game</button>
-
-    <div id="game" style="display:none;">
-        <h3>Make Your Guess</h3>
-        <div class="guess-display" id="guessDisplay"></div>
-        <div class="keypad">
-            <button>1</button>
-            <button>2</button>
-            <button>3</button>
-            <button>4</button>
-            <button>5</button>
-            <button>6</button>
-            <button>7</button>
-            <button>8</button>
-            <button>9</button>
-            <button>0</button>
-            <button class="clear-btn">Clear</button>
-            <button>Guess</button>
-        </div>
-        <ul id="history"></ul>
+<div class="torn-paper" id="setupArea">
+    <h3>Create or Join Game</h3>
+    <div><button onclick="showCreate()">Create Room</button> <button onclick="showJoin()">Join Room</button></div>
+    <div id="createDiv" style="display:none;">
+        <h4>Create Room</h4>
+        <label>Mode: <select id="mode" onchange="toggleSecret()"><option value="bot">Bot</option><option value="2player">2 Player</option></select></label><br><br>
+        <label>Winning: <select id="winningType"><option value="fastest">Fastest</option><option value="lowest">Least Turns</option></select></label><br><br>
+        <label>Digits: <input type="number" id="numDigits" min="3" max="8" value="4"></label><br><br>
+        <div id="secretDiv" style="display:none;"><label>Secret: <input type="text" id="secretNumber"></label><br><br></div>
+        <button onclick="createRoom()">Create</button>
+    </div>
+    <div id="joinDiv" style="display:none;">
+        <h4>Join Room</h4>
+        <label>Code: <input type="text" id="roomCode"></label><br><br>
+        <button onclick="joinRoom()">Join</button>
     </div>
 </div>
 
-<div class="torn-paper">
-    <h3>🏆 Leaderboard</h3>
-    <ul id="leaderboardList"></ul>
+<div class="torn-paper" id="gameArea" style="display:none;">
+    <h3>Room: <span id="showRoomCode"></span></h3>
+    <div class="guess-display" id="guessDisplay"></div>
+    <div class="keypad">
+        <button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button><button>0</button>
+        <button class="clear-btn">Clear</button><button>Guess</button>
+    </div>
+    <ul id="history"></ul>
+</div>
+
+<div class="torn-paper" id="chatArea" style="display:none;">
+    <h3>💬 Chat</h3>
+    <ul id="chatBox" style="height:150px;overflow-y:auto;"></ul>
+    <input type="text" id="chatMsg" placeholder="Type message..." style="width:80%;">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<div class="torn-paper" id="summaryArea" style="display:none;">
+    <h3>🏆 Game Summary</h3>
+    <ul id="summaryList"></ul>
 </div>
 
 <script>
-let gameId = null;
-let currentGuess = "";
+let currentGuess="", roomId=null, roomCode=null, poller=null, chatPoller=null;
+const userId="YOUR_USER_ID", username="YOUR_USERNAME";
 
-document.addEventListener("DOMContentLoaded", () => {
-    loadLeaderboard();
-    setupButtons();
-});
+function showCreate(){document.getElementById("createDiv").style.display="block";document.getElementById("joinDiv").style.display="none";}
+function showJoin(){document.getElementById("createDiv").style.display="none";document.getElementById("joinDiv").style.display="block";}
+function toggleSecret(){document.getElementById("secretDiv").style.display=(document.getElementById("mode").value==="2player")?"block":"none";}
 
-function setupButtons() {
-    const isTouch = 'ontouchstart' in window;
-    const buttons = document.querySelectorAll('.keypad button');
-    const startBtn = document.getElementById("startBtn");
-    if (isTouch) {
-        startBtn.addEventListener("touchstart", () => startGame(document.getElementById('digitCount').value));
-    } else {
-        startBtn.addEventListener("click", () => startGame(document.getElementById('digitCount').value));
-    }
+async function createRoom(){
+    const form=new FormData();
+    form.append("user_id",userId);form.append("mode",document.getElementById("mode").value);
+    form.append("num_digits",document.getElementById("numDigits").value);
+    form.append("winning_type",document.getElementById("winningType").value);
+    if(document.getElementById("mode").value==="2player")form.append("secret_number",document.getElementById("secretNumber").value);
+    const res=await fetch("/create_room",{method:"POST",body:form});const data=await res.json();
+    roomId=data.room_id;roomCode=data.room_code;
+    document.getElementById("showRoomCode").textContent=roomCode;startGameArea();
+}
 
-    buttons.forEach(btn => {
-        const val = btn.textContent.trim();
-        if (val === "Clear") {
-            isTouch ? btn.addEventListener("touchstart", clearGuess)
-                    : btn.addEventListener("click", clearGuess);
-        } else if (val === "Guess") {
-            isTouch ? btn.addEventListener("touchstart", makeGuess)
-                    : btn.addEventListener("click", makeGuess);
-        } else {
-            isTouch ? btn.addEventListener("touchstart", () => addDigit(val))
-                    : btn.addEventListener("click", () => addDigit(val));
-        }
+async function joinRoom(){
+    const form=new FormData();
+    form.append("room_code",document.getElementById("roomCode").value);
+    form.append("user_id",userId);
+    const res=await fetch("/join_room",{method:"POST",body:form});
+    const data=await res.json();
+    roomId=data.room.id;roomCode=data.room.room_code;
+    document.getElementById("showRoomCode").textContent=roomCode;startGameArea();
+}
+
+function startGameArea(){
+    document.getElementById("setupArea").style.display="none";
+    document.getElementById("gameArea").style.display="block";
+    document.getElementById("chatArea").style.display="block";
+    setupButtons();pollRoomStatus();pollChat();
+}
+
+function setupButtons(){
+    const isTouch='ontouchstart'in window;
+    const buttons=document.querySelectorAll('.keypad button');
+    buttons.forEach(btn=>{const val=btn.textContent.trim();
+        if(val==="Clear"){isTouch?btn.addEventListener("touchstart",clearGuess):btn.addEventListener("click",clearGuess);}
+        else if(val==="Guess"){isTouch?btn.addEventListener("touchstart",makeGuess):btn.addEventListener("click",makeGuess);}
+        else{isTouch?btn.addEventListener("touchstart",()=>addDigit(val)):btn.addEventListener("click",()=>addDigit(val));}
     });
 }
+function addDigit(d){currentGuess+=d;document.getElementById("guessDisplay").textContent=currentGuess;}
+function clearGuess(){currentGuess="";document.getElementById("guessDisplay").textContent="";}
 
-async function startGame(digits) {
-    const form = new FormData();
-    form.append("num_digits", digits);
-    const res = await fetch("/start_game", { method: "POST", body: form });
-    const data = await res.json();
-    gameId = data.game_id;
-    document.getElementById("game").style.display = "block";
-    document.getElementById("history").innerHTML = "";
-    clearGuess();
-    alert("Game started with " + digits + " digits!");
-}
-
-function addDigit(d) {
-    currentGuess += d;
-    document.getElementById("guessDisplay").textContent = currentGuess;
-}
-
-function clearGuess() {
-    currentGuess = "";
-    document.getElementById("guessDisplay").textContent = "";
-}
-
-async function makeGuess() {
-    if (!gameId) {
-        alert("Please start a game first.");
-        return;
-    }
-    if (currentGuess.length !== parseInt(document.getElementById('digitCount').value)) {
-        alert(`Please enter exactly ${document.getElementById('digitCount').value} digits.`);
-        return;
-    }
-
-    const form = new FormData();
-    form.append("game_id", gameId);
-    form.append("guess", currentGuess);
-    const res = await fetch("/guess", { method: "POST", body: form });
-    const data = await res.json();
-
-    const li = document.createElement("li");
-    li.innerText = `Guess: ${currentGuess} → In Number: ${data.numbers_correct}, Correct Place: ${data.positions_correct}`;
+async function makeGuess(){
+    const form=new FormData();
+    form.append("room_id",roomId);form.append("user_id",userId);form.append("guess",currentGuess);
+    const res=await fetch("/room_guess",{method:"POST",body:form});const data=await res.json();
+    const li=document.createElement("li");
+    li.innerText=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
     document.getElementById("history").appendChild(li);
-
-    if (data.completed) {
-        alert(`🎉 Congratulations! You guessed the number in ${data.turns} turns!`);
-        await loadLeaderboard();
-    }
+    if(data.completed)alert(`🎉 You guessed in ${data.turns} turns!`);
+    if(data.room_completed)pollRoomStatus(true);
     clearGuess();
 }
 
-async function loadLeaderboard() {
-    let res = await fetch("/leaderboard");
-    let players = await res.json();
-    let list = document.getElementById("leaderboardList");
-    list.innerHTML = "";
-    players.forEach(player => {
-        let li = document.createElement("li");
-        li.textContent = `${player.username} - ${player.best_turns} turns`;
-        list.appendChild(li);
-    });
+async function pollRoomStatus(force=false){
+    const res=await fetch(`/room_status?room_id=${roomId}`);
+    const data=await res.json();
+    if(data.status==="completed"&&data.winner){
+        alert(`🏆 ${data.winner.username} won in ${data.winner.turns} turns!`);
+        showSummary();clearTimeout(poller);
+    }else if(!force){poller=setTimeout(pollRoomStatus,2000);}
+}
+
+async function showSummary(){
+    document.getElementById("summaryArea").style.display="block";
+    const res=await fetch(`/get_room_summary?room_id=${roomId}`);
+    const players=await res.json();
+    let list=document.getElementById("summaryList");list.innerHTML="";
+    players.forEach(p=>{let li=document.createElement("li");li.textContent=`${p.username}: ${p.turns} turns`;list.appendChild(li);});
+}
+
+async function sendMessage(){
+    const msg=document.getElementById("chatMsg").value.trim();
+    if(!msg)return;
+    const form=new FormData();
+    form.append("room_id",roomId);form.append("user_id",userId);form.append("username",username);form.append("message",msg);
+    await fetch("/send_message",{method:"POST",body:form});
+    document.getElementById("chatMsg").value="";
+    loadChat();
+}
+
+async function pollChat(){
+    await loadChat(); chatPoller=setTimeout(pollChat,2000);
+}
+async function loadChat(){
+    const res=await fetch(`/get_messages?room_id=${roomId}`);
+    const msgs=await res.json();
+    let box=document.getElementById("chatBox"); box.innerHTML="";
+    msgs.forEach(m=>{let li=document.createElement("li");li.textContent=`${m.username}: ${m.message}`;box.appendChild(li);});
+    box.scrollTop=box.scrollHeight;
 }
 </script>
 
