@@ -111,10 +111,12 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
     }).eq("id", game_id).execute()
 
     return {
-        "numbers_correct": numbers_correct,
-        "positions_correct": positions_correct,
-        "completed": completed
-    }
+    "numbers_correct": numbers_correct,
+    "positions_correct": positions_correct,
+    "completed": completed,
+    "turns": turns
+}
+
 
 # ----------------- Leaderboard
 @app.get("/leaderboard")

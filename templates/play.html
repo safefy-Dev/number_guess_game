@@ -25,7 +25,6 @@
             position: relative;
             overflow: hidden;
         }
-
         .torn-paper:before, .torn-paper:after {
             content: "";
             position: absolute;
@@ -88,24 +87,24 @@
 <div class="torn-paper">
     <h3>Start New Game</h3>
     <input type="number" id="digitCount" min="3" max="8" value="4">
-    <button onclick="startGame(document.getElementById('digitCount').value)">Start Game</button>
+    <button onclick="startGame(document.getElementById('digitCount').value)" ontouchstart="startGame(document.getElementById('digitCount').value)">Start Game</button>
 
     <div id="game" style="display:none;">
         <h3>Make Your Guess</h3>
         <div class="guess-display" id="guessDisplay"></div>
         <div class="keypad">
-            <button onclick="addDigit('1')">1</button>
-            <button onclick="addDigit('2')">2</button>
-            <button onclick="addDigit('3')">3</button>
-            <button onclick="addDigit('4')">4</button>
-            <button onclick="addDigit('5')">5</button>
-            <button onclick="addDigit('6')">6</button>
-            <button onclick="addDigit('7')">7</button>
-            <button onclick="addDigit('8')">8</button>
-            <button onclick="addDigit('9')">9</button>
-            <button onclick="addDigit('0')">0</button>
-            <button class="clear-btn" onclick="clearGuess()">Clear</button>
-            <button onclick="makeGuess()">Guess</button>
+            <button onclick="addDigit('1')" ontouchstart="addDigit('1')">1</button>
+            <button onclick="addDigit('2')" ontouchstart="addDigit('2')">2</button>
+            <button onclick="addDigit('3')" ontouchstart="addDigit('3')">3</button>
+            <button onclick="addDigit('4')" ontouchstart="addDigit('4')">4</button>
+            <button onclick="addDigit('5')" ontouchstart="addDigit('5')">5</button>
+            <button onclick="addDigit('6')" ontouchstart="addDigit('6')">6</button>
+            <button onclick="addDigit('7')" ontouchstart="addDigit('7')">7</button>
+            <button onclick="addDigit('8')" ontouchstart="addDigit('8')">8</button>
+            <button onclick="addDigit('9')" ontouchstart="addDigit('9')">9</button>
+            <button onclick="addDigit('0')" ontouchstart="addDigit('0')">0</button>
+            <button class="clear-btn" onclick="clearGuess()" ontouchstart="clearGuess()">Clear</button>
+            <button onclick="makeGuess()" ontouchstart="makeGuess()">Guess</button>
         </div>
         <ul id="history"></ul>
     </div>
@@ -163,7 +162,8 @@ async function makeGuess() {
     document.getElementById("history").appendChild(li);
 
     if (data.completed) {
-        alert("🎉 Congratulations! You guessed the number!");
+        alert(`🎉 Congratulations! You guessed the number in ${data.turns} turns!`);
+        await loadLeaderboard();
     }
     clearGuess();
 }
@@ -182,7 +182,6 @@ async function loadLeaderboard() {
         list.appendChild(li);
     });
 }
-
 </script>
 
 </body>
