@@ -117,7 +117,7 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
     }
 
 # ----------------- Leaderboard
-@app.get("/leaderboard", response_class=HTMLResponse)
-async def leaderboard_page(request: Request):
+@app.get("/leaderboard")
+async def leaderboard_api():
     leaderboard = supabase.table("leaderboard").select("*").execute().data
-    return templates.TemplateResponse("leaderboard.html", {"request": request, "players": leaderboard})
+    return leaderboard

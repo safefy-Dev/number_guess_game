@@ -173,22 +173,16 @@ document.addEventListener("DOMContentLoaded", loadLeaderboard);
 
 async function loadLeaderboard() {
     let res = await fetch("/leaderboard");
-    let html = await res.text();
-    let tmp = document.createElement("div");
-    tmp.innerHTML = html;
-    let players = tmp.querySelectorAll("tr");
+    let players = await res.json();
     let list = document.getElementById("leaderboardList");
     list.innerHTML = "";
-    players.forEach((row, idx) => {
-        if(idx === 0) return; // skip header
-        let cols = row.querySelectorAll("td");
-        if(cols.length) {
-            let li = document.createElement("li");
-            li.textContent = `${cols[0].textContent} - ${cols[1].textContent} turns`;
-            list.appendChild(li);
-        }
+    players.forEach(player => {
+        let li = document.createElement("li");
+        li.textContent = `${player.username} - ${player.best_turns} turns`;
+        list.appendChild(li);
     });
 }
+
 </script>
 
 </body>
