@@ -175,6 +175,48 @@ async def room_guess(room_id: str = Form(...), user_id: str = Form(...), guess: 
     current_room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
     return {"numbers_correct": numbers_correct, "positions_correct": positions_correct, "turns": turns, "completed": completed, "room_completed": current_room["is_completed"]}
 
+@app.post("/create_room")
+async def create_room(
+    user_id: str = Form(...),
+    username: str = Form(...),
+    mode: str = Form(...),
+    num_digits: int = Form(...),
+    winning_type: str = Form(...),
+    secret_number: str = Form(None)
+):
+    room_code = generate_room_code()
+    if mode == "bot":
+        secret = ''.join([str(random.randint(0,9)) for _ in range(num_digits)])
+    else:
+        secret = secret_number
+
+    # Insert the room into Supabase
+    room = supabase.table("rooms").insert({
+        "room_code": room_code,
+        "mode": mode,
+        "created_by": user_id,
+        "secret_number": secret,
+        "num_digits": num_digits,
+        "winning_type": winning_type
+    }).execute().data[0]
+
+    # Also immediately register the creator into room_guesses
+    supabase.table("room_guesses").insert({
+        "room_id": room["id"],
+        "user_id": user_id,
+        "username": username,
+        "turns": 0,
+        "completed": False
+    }).execute()
+
+    # Return full room object so JavaScript can do:
+    #   roomId = data.room.id;
+    #   roomCode = data.room.room_code;
+    #   requiredLength = data.room.num_digits;
+    return {"room": room}
+
+
+
 @app.post("/join_room")
 async def join_room(room_code: str = Form(...), user_id: str = Form(...), username: str = Form(...)):
     room = supabase.table("rooms").select("*").eq("room_code", room_code).single().execute().data
