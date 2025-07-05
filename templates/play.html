@@ -143,10 +143,15 @@ function clearGuess() {
 }
 
 async function makeGuess() {
-    if (!gameId || currentGuess.length == 0) {
-        alert("Please start a game and enter your guess.");
+    if (!gameId) {
+        alert("Please start a game first.");
         return;
     }
+    if (currentGuess.length !== parseInt(document.getElementById('digitCount').value)) {
+        alert(`Please enter exactly ${document.getElementById('digitCount').value} digits.`);
+        return;
+    }
+
     const form = new FormData();
     form.append("game_id", gameId);
     form.append("guess", currentGuess);
@@ -162,6 +167,7 @@ async function makeGuess() {
     }
     clearGuess();
 }
+
 
 document.addEventListener("DOMContentLoaded", loadLeaderboard);
 
