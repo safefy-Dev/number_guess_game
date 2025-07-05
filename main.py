@@ -4,6 +4,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import bcrypt, uuid, random
 from supabase_client import supabase
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -118,8 +120,106 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
 }
 
 
+
+def generate_room_code():
+    return ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=6))
+
+# ----------------- Multiplayer routes
+
+@app.post("/create_room")
+async def create_room(user_id: str = Form(...), mode: str = Form(...), num_digits: int = Form(...), winning_type: str = Form(...), secret_number: str = Form(None)):
+    room_code = generate_room_code()
+    if mode == "bot":
+        secret = ''.join([str(random.randint(0,9)) for _ in range(num_digits)])
+    else:
+        secret = secret_number
+
+    room = supabase.table("rooms").insert({
+        "room_code": room_code,
+        "mode": mode,
+        "created_by": user_id,
+        "secret_number": secret,
+        "num_digits": num_digits,
+        "winning_type": winning_type
+    }).execute().data[0]
+
+    return {"room_code": room_code, "room_id": room["id"]}
+
+@app.post("/join_room")
+async def join_room(room_code: str = Form(...), user_id: str = Form(...)):
+    room = supabase.table("rooms").select("*").eq("room_code", room_code).single().execute().data
+    # add player entry if not exist
+    existing = supabase.table("room_guesses").select("*").eq("room_id", room["id"]).eq("user_id", user_id).execute().data
+    if not existing:
+        supabase.table("room_guesses").insert({
+            "room_id": room["id"],
+            "user_id": user_id
+        }).execute()
+    return {"room": room}
+
+@app.post("/room_guess")
+async def room_guess(room_id: str = Form(...), user_id: str = Form(...), guess: str = Form(...)):
+    room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
+    secret = room["secret_number"]
+
+    positions_correct = sum(1 for a, b in zip(secret, guess) if a == b)
+    numbers_correct = sum(min(secret.count(d), guess.count(d)) for d in set(secret))
+
+    record = supabase.table("room_guesses").select("*").eq("room_id", room_id).eq("user_id", user_id).single().execute().data
+    turns = record["turns"] + 1
+    completed = (positions_correct == len(secret))
+
+    supabase.table("room_guesses").update({
+        "turns": turns,
+        "last_guess": guess,
+        "numbers_correct": numbers_correct,
+        "positions_correct": positions_correct,
+        "completed": completed
+    }).eq("id", record["id"]).execute()
+
+    if completed and room["winning_type"] == "fastest" and not room["is_completed"]:
+        supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
+
+    # see if someone won already
+    current_room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
+    return {
+        "numbers_correct": numbers_correct,
+        "positions_correct": positions_correct,
+        "turns": turns,
+        "completed": completed,
+        "room_completed": current_room["is_completed"]
+    }
+
+@app.get("/room_status")
+async def room_status(room_id: str):
+    room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
+    if not room["is_completed"]:
+        return {"status": "in_progress"}
+    winner = supabase.table("room_guesses").select("*").eq("room_id", room_id).eq("completed", True).order("created_at").limit(1).execute().data
+    return {"status": "completed", "winner": winner[0] if winner else None}
+
 # ----------------- Leaderboard
 @app.get("/leaderboard")
 async def leaderboard_api():
     leaderboard = supabase.table("leaderboard").select("*").execute().data
     return leaderboard
+
+@app.post("/send_message")
+async def send_message(room_id: str = Form(...), user_id: str = Form(...), username: str = Form(...), message: str = Form(...)):
+    supabase.table("room_chat").insert({
+        "room_id": room_id,
+        "user_id": user_id,
+        "username": username,
+        "message": message
+    }).execute()
+    return {"status": "ok"}
+
+@app.get("/get_messages")
+async def get_messages(room_id: str):
+    msgs = supabase.table("room_chat").select("*").eq("room_id", room_id).order("created_at").execute().data
+    return msgs
+
+@app.get("/get_room_summary")
+async def get_room_summary(room_id: str):
+    players = supabase.table("room_guesses").select("*").eq("room_id", room_id).order("turns").execute().data
+    return players
