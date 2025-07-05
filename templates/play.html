@@ -74,24 +74,37 @@ function toggleSecret(){document.getElementById("secretDiv").style.display=(docu
 
 async function createRoom(){
     const form=new FormData();
-    form.append("user_id",userId);form.append("mode",document.getElementById("mode").value);
-    form.append("num_digits",document.getElementById("numDigits").value);
-    form.append("winning_type",document.getElementById("winningType").value);
-    if(document.getElementById("mode").value==="2player")form.append("secret_number",document.getElementById("secretNumber").value);
-    const res=await fetch("/create_room",{method:"POST",body:form});const data=await res.json();
-    roomId=data.room_id;roomCode=data.room_code;
-    document.getElementById("showRoomCode").textContent=roomCode;startGameArea();
+    form.append("user_id", userId);
+    form.append("username", username);
+    form.append("mode", document.getElementById("mode").value);
+    form.append("num_digits", document.getElementById("numDigits").value);
+    form.append("winning_type", document.getElementById("winningType").value);
+    if(document.getElementById("mode").value==="2player")
+        form.append("secret_number", document.getElementById("secretNumber").value);
+
+    const res = await fetch("/create_room", {method:"POST", body: form});
+    const data = await res.json();
+    roomId = data.room_id;
+    roomCode = data.room_code;
+    document.getElementById("showRoomCode").textContent = roomCode;
+    startGameArea();
 }
 
+
 async function joinRoom(){
-    const form=new FormData();
-    form.append("room_code",document.getElementById("roomCode").value);
-    form.append("user_id",userId);
-    const res=await fetch("/join_room",{method:"POST",body:form});
-    const data=await res.json();
-    roomId=data.room.id;roomCode=data.room.room_code;
-    document.getElementById("showRoomCode").textContent=roomCode;startGameArea();
+    const form = new FormData();
+    form.append("room_code", document.getElementById("roomCode").value);
+    form.append("user_id", userId);
+    form.append("username", username);
+
+    const res = await fetch("/join_room", {method:"POST", body:form});
+    const data = await res.json();
+    roomId = data.room.id;
+    roomCode = data.room.room_code;
+    document.getElementById("showRoomCode").textContent = roomCode;
+    startGameArea();
 }
+
 
 function startGameArea(){
     document.getElementById("setupArea").style.display="none";

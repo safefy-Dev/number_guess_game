@@ -136,7 +136,14 @@ def generate_room_code():
 # ----------------- Multiplayer routes
 
 @app.post("/create_room")
-async def create_room(user_id: str = Form(...), mode: str = Form(...), num_digits: int = Form(...), winning_type: str = Form(...), secret_number: str = Form(None)):
+async def create_room(
+    user_id: str = Form(...),
+    username: str = Form(...),
+    mode: str = Form(...),
+    num_digits: int = Form(...),
+    winning_type: str = Form(...),
+    secret_number: str = Form(None)
+):
     room_code = generate_room_code()
     if mode == "bot":
         secret = ''.join([str(random.randint(0,9)) for _ in range(num_digits)])
@@ -152,19 +159,38 @@ async def create_room(user_id: str = Form(...), mode: str = Form(...), num_digit
         "winning_type": winning_type
     }).execute().data[0]
 
+    # Add creator as first player
+    supabase.table("room_guesses").insert({
+        "room_id": room["id"],
+        "user_id": user_id,
+        "username": username
+    }).execute()
+
     return {"room_code": room_code, "room_id": room["id"]}
 
+
 @app.post("/join_room")
-async def join_room(room_code: str = Form(...), user_id: str = Form(...)):
+async def join_room(
+    room_code: str = Form(...),
+    user_id: str = Form(...),
+    username: str = Form(...)
+):
     room = supabase.table("rooms").select("*").eq("room_code", room_code).single().execute().data
+
     # add player entry if not exist
-    existing = supabase.table("room_guesses").select("*").eq("room_id", room["id"]).eq("user_id", user_id).execute().data
+    existing = supabase.table("room_guesses")\
+        .select("*")\
+        .eq("room_id", room["id"])\
+        .eq("user_id", user_id)\
+        .execute().data
     if not existing:
         supabase.table("room_guesses").insert({
             "room_id": room["id"],
-            "user_id": user_id
+            "user_id": user_id,
+            "username": username
         }).execute()
     return {"room": room}
+
 
 @app.post("/room_guess")
 async def room_guess(room_id: str = Form(...), user_id: str = Form(...), guess: str = Form(...)):
