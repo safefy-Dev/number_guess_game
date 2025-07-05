@@ -32,7 +32,6 @@
     <label>Digits: <input type="number" id="spDigits" min="3" max="8" value="4"></label><br><br>
     <button onclick="startSingle()">Start Game</button>
     <button onclick="goBack()">⬅ Back</button>
-
     <div id="spGame" style="display:none;">
         <div class="guess-display" id="spGuessDisplay"></div>
         <div class="keypad" id="spPad"></div>
@@ -70,7 +69,6 @@
     <div class="keypad" id="mpPad"></div>
     <ul id="mpHistory"></ul>
     <button onclick="goBackFromGame()">⬅ Back</button>
-
     <div class="torn-paper" style="margin-top:1rem;">
         <h3>💬 Chat</h3>
         <ul id="chatBox" style="height:150px;overflow-y:auto;"></ul>
@@ -91,7 +89,7 @@
 <script>
 const userId="{{ user_id }}";
 const username="{{ username }}";
-let currentGuess="", gameId=null, roomId=null, roomCode=null, spPad, mpPad, poller, chatPoller;
+let currentGuess="", gameId=null, roomId=null, roomCode=null, requiredLength=0, spPad, mpPad, poller, chatPoller;
 
 document.addEventListener("DOMContentLoaded", () => {
     spPad = document.getElementById("spPad");
@@ -103,11 +101,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function createKeypad(container, type){
     container.innerHTML="";
-    let digits="1234567890".split("");
-    digits.forEach(d=>{
+    "1234567890".split("").forEach(d=>{
         let b=document.createElement("button"); b.textContent=d;
-        b.onclick=()=>addDigit(d,type);
-        container.appendChild(b);
+        b.onclick=()=>addDigit(d,type); container.appendChild(b);
     });
     let c=document.createElement("button"); c.textContent="Clear"; c.className="clear-btn";
     c.onclick=()=>clearGuess(type); container.appendChild(c);
@@ -124,26 +120,18 @@ function clearGuess(type){
     if(type==="single") document.getElementById("spGuessDisplay").textContent="";
     else document.getElementById("mpGuessDisplay").textContent="";
 }
-function goBack(){
-    document.getElementById("singleArea").style.display="none";
-    document.getElementById("multiArea").style.display="none";
+function goBack(){roomId=null;gameId=null;requiredLength=0;resetAll();}
+function goBackFromGame(){roomId=null;gameId=null;requiredLength=0;resetAll();}
+function resetAll(){
+    ["singleArea","multiArea","mpGameArea"].forEach(id=>document.getElementById(id).style.display="none");
     document.getElementById("menuArea").style.display="block";
     document.getElementById("createDiv").style.display="none";
     document.getElementById("joinDiv").style.display="none";
-}
-function goBackFromGame(){
-    document.getElementById("mpGameArea").style.display="none";
-    document.getElementById("spGame").style.display="none";
-    document.getElementById("singleArea").style.display="none";
-    document.getElementById("multiArea").style.display="none";
-    document.getElementById("menuArea").style.display="block";
-    currentGuess="";
-    clearGuess("single");
-    clearGuess("multi");
+    clearGuess("single"); clearGuess("multi");
 }
 
-function showSingle(){document.getElementById("menuArea").style.display="none";document.getElementById("singleArea").style.display="block";}
-function showMulti(){document.getElementById("menuArea").style.display="none";document.getElementById("multiArea").style.display="block";}
+function showSingle(){resetAll();document.getElementById("menuArea").style.display="none";document.getElementById("singleArea").style.display="block";}
+function showMulti(){resetAll();document.getElementById("menuArea").style.display="none";document.getElementById("multiArea").style.display="block";}
 function showCreate(){document.getElementById("createDiv").style.display="block";document.getElementById("joinDiv").style.display="none";}
 function showJoin(){document.getElementById("createDiv").style.display="none";document.getElementById("joinDiv").style.display="block";}
 function toggleSecret(){document.getElementById("secretDiv").style.display=(document.getElementById("mode").value==="2player")?"block":"none";}
@@ -153,102 +141,78 @@ async function startSingle(){
     form.append("num_digits",document.getElementById("spDigits").value);
     const res=await fetch("/start_game",{method:"POST",body:form});
     const data=await res.json();
-    gameId=data.game_id;
-    document.getElementById("spGame").style.display="block";
-    clearGuess("single"); document.getElementById("spHistory").innerHTML="";
+    gameId=data.game_id; requiredLength=parseInt(document.getElementById("spDigits").value);
+    document.getElementById("spGame").style.display="block"; clearGuess("single"); document.getElementById("spHistory").innerHTML="";
 }
 
 async function makeGuess(type){
+    if(currentGuess.length!==requiredLength){ alert(`Guess must be ${requiredLength} digits.`); return;}
     if(type==="single"){
         const form=new FormData();
         form.append("game_id",gameId);form.append("guess",currentGuess);
-        const res=await fetch("/guess",{method:"POST",body:form});
-        const data=await res.json();
-        if(data.error){
-            alert(data.error); return;
-        }
-        let li=document.createElement("li");
-        li.textContent=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
+        const res=await fetch("/guess",{method:"POST",body:form});const data=await res.json();
+        if(data.error){alert(data.error);return;}
+        let li=document.createElement("li");li.textContent=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
         document.getElementById("spHistory").appendChild(li);
         if(data.completed) alert(`🎉 You guessed in ${data.turns} turns!`);
         clearGuess("single");
-    } else {
+    }else{
         const form=new FormData();
         form.append("room_id",roomId);form.append("user_id",userId);form.append("guess",currentGuess);
-        const res=await fetch("/room_guess",{method:"POST",body:form});
-        const data=await res.json();
-        if(data.error){
-            alert(data.error); return;
-        }
-        let li=document.createElement("li");
-        li.textContent=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
+        const res=await fetch("/room_guess",{method:"POST",body:form});const data=await res.json();
+        if(data.error){alert(data.error);return;}
+        let li=document.createElement("li");li.textContent=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
         document.getElementById("mpHistory").appendChild(li);
         if(data.completed) alert(`🎉 You guessed it in ${data.turns} turns!`);
         if(data.room_completed) showSummary();
         clearGuess("multi");
     }
 }
-
-
 async function createRoom(){
     const form=new FormData();
-    form.append("user_id",userId); form.append("username",username);
+    form.append("user_id",userId);form.append("username",username);
     form.append("mode",document.getElementById("mode").value);
     form.append("num_digits",document.getElementById("numDigits").value);
     form.append("winning_type",document.getElementById("winningType").value);
-    if(document.getElementById("mode").value==="2player") form.append("secret_number",document.getElementById("secretNumber").value);
-    const res=await fetch("/create_room",{method:"POST",body:form}); const data=await res.json();
-    roomId=data.room_id;roomCode=data.room_code;
-    document.getElementById("showRoomCode").textContent=roomCode;
-    startMulti();
+    if(document.getElementById("mode").value==="2player")form.append("secret_number",document.getElementById("secretNumber").value);
+    const res=await fetch("/create_room",{method:"POST",body:form});const data=await res.json();
+    roomId=data.room_id;roomCode=data.room_code;requiredLength=parseInt(document.getElementById("numDigits").value);
+    document.getElementById("showRoomCode").textContent=roomCode;startMulti();
 }
 async function joinRoom(){
     const form=new FormData();
     form.append("room_code",document.getElementById("roomCode").value);
     form.append("user_id",userId);form.append("username",username);
-    const res=await fetch("/join_room",{method:"POST",body:form}); const data=await res.json();
-    roomId=data.room.id; roomCode=data.room.room_code;
-    document.getElementById("showRoomCode").textContent=roomCode;
-    startMulti();
+    const res=await fetch("/join_room",{method:"POST",body:form});const data=await res.json();
+    roomId=data.room.id;roomCode=data.room.room_code;requiredLength=data.room.num_digits;
+    document.getElementById("showRoomCode").textContent=roomCode;startMulti();
 }
 
 function startMulti(){
+    if(!roomId){alert("Room ID missing.");return;}
     document.getElementById("multiArea").style.display="none";
     document.getElementById("mpGameArea").style.display="block";
     pollRoomStatus();pollChat();
 }
-async function pollRoomStatus(){
-    const res=await fetch(`/room_status?room_id=${roomId}`);
-    const data=await res.json();
-    if(data.status==="completed"&&data.winner){
-        alert(`🏆 ${data.winner.username} won in ${data.winner.turns} turns!`);
-        showSummary();
-    }else setTimeout(pollRoomStatus,2000);
-}
-async function showSummary(){
-    document.getElementById("summaryArea").style.display="block";
-    const res=await fetch(`/get_room_summary?room_id=${roomId}`);const players=await res.json();
-    let list=document.getElementById("summaryList");list.innerHTML="";
-    players.forEach(p=>{let li=document.createElement("li");li.textContent=`${p.username}: ${p.turns} turns`;list.appendChild(li);});
-}
-async function sendMessage(){
-    const msg=document.getElementById("chatMsg").value.trim();
-    if(!msg)return;
-    const form=new FormData();
-    form.append("room_id",roomId);form.append("user_id",userId);form.append("username",username);form.append("message",msg);
-    await fetch("/send_message",{method:"POST",body:form});
-    document.getElementById("chatMsg").value=""; loadChat();
-}
-async function pollChat(){await loadChat();setTimeout(pollChat,2000);}
+async function pollRoomStatus(){if(!roomId)return;const res=await fetch(`/room_status?room_id=${roomId}`);const data=await res.json();
+if(data.status==="completed"&&data.winner){alert(`🏆 ${data.winner.username} won in ${data.winner.turns} turns!`);showSummary();}else setTimeout(pollRoomStatus,2000);}
+async function pollChat(){if(!roomId)return;await loadChat();setTimeout(pollChat,2000);}
 async function loadChat(){
-    const res=await fetch(`/get_messages?room_id=${roomId}`);
-    const msgs=await res.json(); let box=document.getElementById("chatBox"); box.innerHTML="";
+    const res=await fetch(`/get_messages?room_id=${roomId}`);const msgs=await res.json();
+    let box=document.getElementById("chatBox");box.innerHTML="";
     msgs.forEach(m=>{let li=document.createElement("li");li.textContent=`${m.username}: ${m.message}`;box.appendChild(li);});
     box.scrollTop=box.scrollHeight;
 }
+async function showSummary(){document.getElementById("summaryArea").style.display="block";
+const res=await fetch(`/get_room_summary?room_id=${roomId}`);const players=await res.json();let list=document.getElementById("summaryList");list.innerHTML="";
+players.forEach(p=>{let li=document.createElement("li");li.textContent=`${p.username}: ${p.turns} turns`;list.appendChild(li);});}
+async function sendMessage(){
+    const msg=document.getElementById("chatMsg").value.trim();if(!msg)return;
+    const form=new FormData();form.append("room_id",roomId);form.append("user_id",userId);form.append("username",username);form.append("message",msg);
+    await fetch("/send_message",{method:"POST",body:form});document.getElementById("chatMsg").value="";loadChat();
+}
 async function loadLeaderboard(){
-    const res=await fetch("/leaderboard");const data=await res.json();
-    let list=document.getElementById("leaderboardList");list.innerHTML="";
+    const res=await fetch("/leaderboard");const data=await res.json();let list=document.getElementById("leaderboardList");list.innerHTML="";
     data.forEach(p=>{let li=document.createElement("li");li.textContent=`${p.username}: ${p.best_turns} turns`;list.appendChild(li);});
 }
 </script>
