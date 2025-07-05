@@ -92,7 +92,7 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
     secret = game["secret_number"]
 
     # Core game logic
-    numbers_correct = sum(min(secret.count(d), guess.count(d)) for d in set(guess))
+    numbers_correct = sum(min(secret.count(d), guess.count(d)) for d in set(secret))
     positions_correct = sum(1 for a, b in zip(secret, guess) if a == b)
 
     supabase.table("guesses").insert({
