@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Multiplayer Number Guess + Chat</title>
+    <title>Number Guess Game</title>
     <style>
         body { font-family: Arial, sans-serif; padding:1rem; max-width:700px; margin:auto; background:#fdf6e3;}
         h2,h3{ text-align:center;}
@@ -19,40 +19,53 @@
 </head>
 <body>
 
-<h2>🎯 Multiplayer Number Guess + Chat</h2>
+<h2>🎯 Number Guess Game</h2>
 
 <script>
 const userId = "{{ user_id }}";
 const username = "{{ username }}";
-let currentGuess="", roomId=null, roomCode=null, poller=null, chatPoller=null;
+
+let currentGuess="", singleGameId=null, roomId=null, roomCode=null, poller=null, chatPoller=null;
 </script>
 
 <div class="torn-paper" id="setupArea">
-    <h3>Create or Join Game</h3>
-    <div><button onclick="showCreate()">Create Room</button> <button onclick="showJoin()">Join Room</button></div>
-    <div id="createDiv" style="display:none;">
-        <h4>Create Room</h4>
-        <label>Mode: <select id="mode" onchange="toggleSecret()"><option value="bot">Bot</option><option value="2player">2 Player</option></select></label><br><br>
-        <label>Winning: <select id="winningType"><option value="fastest">Fastest</option><option value="lowest">Least Turns</option></select></label><br><br>
-        <label>Digits: <input type="number" id="numDigits" min="3" max="8" value="4"></label><br><br>
-        <div id="secretDiv" style="display:none;"><label>Secret: <input type="text" id="secretNumber"></label><br><br></div>
-        <button onclick="createRoom()">Create</button>
-    </div>
-    <div id="joinDiv" style="display:none;">
-        <h4>Join Room</h4>
-        <label>Code: <input type="text" id="roomCode"></label><br><br>
-        <button onclick="joinRoom()">Join</button>
-    </div>
+    <h3>Start New Game</h3>
+    <label>Digits: <input type="number" id="numDigits" min="3" max="8" value="4"></label><br><br>
+    <button onclick="startSinglePlayer()">Single Player</button>
+    <button onclick="showCreate()">Create Multiplayer Room</button>
+    <button onclick="showJoin()">Join Room</button>
+</div>
+
+<div class="torn-paper" id="createDiv" style="display:none;">
+    <h3>Create Room</h3>
+    <label>Mode: <select id="mode" onchange="toggleSecret()"><option value="bot">Vs Bot</option><option value="2player">2 Player</option></select></label><br><br>
+    <label>Winning: <select id="winningType"><option value="fastest">Fastest</option><option value="lowest">Least Turns</option></select></label><br><br>
+    <div id="secretDiv" style="display:none;"><label>Secret: <input type="text" id="secretNumber"></label><br><br></div>
+    <button onclick="createRoom()">Create Room</button>
+    <button onclick="goBack()">🔙 Back</button>
+</div>
+
+<div class="torn-paper" id="joinDiv" style="display:none;">
+    <h3>Join Room</h3>
+    <label>Code: <input type="text" id="roomCode"></label><br><br>
+    <button onclick="joinRoom()">Join</button>
+    <button onclick="goBack()">🔙 Back</button>
+</div>
+
+<div class="torn-paper" id="singlePlayerArea" style="display:none;">
+    <h3>Single Player</h3>
+    <div class="guess-display" id="guessDisplaySP"></div>
+    <div class="keypad" id="spKeypad"></div>
+    <ul id="historySP"></ul>
+    <button onclick="goBack()">🔙 Back</button>
 </div>
 
 <div class="torn-paper" id="gameArea" style="display:none;">
     <h3>Room: <span id="showRoomCode"></span></h3>
     <div class="guess-display" id="guessDisplay"></div>
-    <div class="keypad">
-        <button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button><button>0</button>
-        <button class="clear-btn">Clear</button><button>Guess</button>
-    </div>
+    <div class="keypad" id="mpKeypad"></div>
     <ul id="history"></ul>
+    <button onclick="goBack()">🔙 Back</button>
 </div>
 
 <div class="torn-paper" id="chatArea" style="display:none;">
@@ -68,9 +81,62 @@ let currentGuess="", roomId=null, roomCode=null, poller=null, chatPoller=null;
 </div>
 
 <script>
-function showCreate(){document.getElementById("createDiv").style.display="block";document.getElementById("joinDiv").style.display="none";}
-function showJoin(){document.getElementById("createDiv").style.display="none";document.getElementById("joinDiv").style.display="block";}
+function showCreate(){document.getElementById("setupArea").style.display="none";document.getElementById("createDiv").style.display="block";}
+function showJoin(){document.getElementById("setupArea").style.display="none";document.getElementById("joinDiv").style.display="block";}
+function goBack(){location.reload();}
 function toggleSecret(){document.getElementById("secretDiv").style.display=(document.getElementById("mode").value==="2player")?"block":"none";}
+
+async function startSinglePlayer(){
+    const digits = parseInt(document.getElementById("numDigits").value) || 4;
+    const form = new FormData();
+    form.append("num_digits", digits);
+    const res = await fetch("/start_game", {method:"POST", body:form});
+    const data = await res.json();
+    singleGameId = data.game_id;
+    document.getElementById("setupArea").style.display="none";
+    document.getElementById("singlePlayerArea").style.display="block";
+    setupButtons("spKeypad", makeSingleGuess);
+}
+
+function setupButtons(containerId, callback){
+    const container=document.getElementById(containerId);
+    container.innerHTML="";
+    const digits=[1,2,3,4,5,6,7,8,9,0];
+    digits.forEach(d=>{
+        let btn=document.createElement("button");
+        btn.textContent=d;
+        btn.onclick=()=>{currentGuess+=d;updateDisplay(containerId);};
+        container.appendChild(btn);
+    });
+    let clearBtn=document.createElement("button");
+    clearBtn.textContent="Clear";clearBtn.className="clear-btn";
+    clearBtn.onclick=()=>{currentGuess="";updateDisplay(containerId);};
+    container.appendChild(clearBtn);
+
+    let guessBtn=document.createElement("button");
+    guessBtn.textContent="Guess";
+    guessBtn.onclick=()=>{callback();};
+    container.appendChild(guessBtn);
+}
+
+function updateDisplay(containerId){
+    if(containerId==="spKeypad")document.getElementById("guessDisplaySP").textContent=currentGuess;
+    else document.getElementById("guessDisplay").textContent=currentGuess;
+}
+
+async function makeSingleGuess(){
+    const form=new FormData();
+    form.append("game_id", singleGameId);
+    form.append("guess", currentGuess);
+    const res=await fetch("/guess", {method:"POST",body:form});
+    const data=await res.json();
+    const li=document.createElement("li");
+    li.innerText=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
+    document.getElementById("historySP").appendChild(li);
+    if(data.completed)alert(`🎉 You guessed in ${data.turns} turns!`);
+    currentGuess="";
+    updateDisplay("spKeypad");
+}
 
 async function createRoom(){
     const form=new FormData();
@@ -81,60 +147,48 @@ async function createRoom(){
     form.append("winning_type", document.getElementById("winningType").value);
     if(document.getElementById("mode").value==="2player")
         form.append("secret_number", document.getElementById("secretNumber").value);
-
-    const res = await fetch("/create_room", {method:"POST", body: form});
-    const data = await res.json();
-    roomId = data.room_id;
-    roomCode = data.room_code;
-    document.getElementById("showRoomCode").textContent = roomCode;
-    startGameArea();
+    const res=await fetch("/create_room",{method:"POST",body:form});
+    const data=await res.json();
+    roomId=data.room_id;roomCode=data.room_code;
+    document.getElementById("showRoomCode").textContent=roomCode;
+    startMultiplayer();
 }
-
 
 async function joinRoom(){
     const form = new FormData();
     form.append("room_code", document.getElementById("roomCode").value);
     form.append("user_id", userId);
     form.append("username", username);
-
-    const res = await fetch("/join_room", {method:"POST", body:form});
+    const res = await fetch("/join_room",{method:"POST",body:form});
     const data = await res.json();
-    roomId = data.room.id;
-    roomCode = data.room.room_code;
-    document.getElementById("showRoomCode").textContent = roomCode;
-    startGameArea();
+    roomId=data.room.id;roomCode=data.room.room_code;
+    document.getElementById("showRoomCode").textContent=roomCode;
+    startMultiplayer();
 }
 
-
-function startGameArea(){
+function startMultiplayer(){
+    document.getElementById("createDiv").style.display="none";
+    document.getElementById("joinDiv").style.display="none";
     document.getElementById("setupArea").style.display="none";
     document.getElementById("gameArea").style.display="block";
     document.getElementById("chatArea").style.display="block";
-    setupButtons();pollRoomStatus();pollChat();
+    setupButtons("mpKeypad", makeMultiplayerGuess);
+    pollRoomStatus();pollChat();
 }
 
-function setupButtons(){
-    const isTouch='ontouchstart'in window;
-    const buttons=document.querySelectorAll('.keypad button');
-    buttons.forEach(btn=>{const val=btn.textContent.trim();
-        if(val==="Clear"){isTouch?btn.addEventListener("touchstart",clearGuess):btn.addEventListener("click",clearGuess);}
-        else if(val==="Guess"){isTouch?btn.addEventListener("touchstart",makeGuess):btn.addEventListener("click",makeGuess);}
-        else{isTouch?btn.addEventListener("touchstart",()=>addDigit(val)):btn.addEventListener("click",()=>addDigit(val));}
-    });
-}
-function addDigit(d){currentGuess+=d;document.getElementById("guessDisplay").textContent=currentGuess;}
-function clearGuess(){currentGuess="";document.getElementById("guessDisplay").textContent="";}
-
-async function makeGuess(){
+async function makeMultiplayerGuess(){
     const form=new FormData();
-    form.append("room_id",roomId);form.append("user_id",userId);form.append("guess",currentGuess);
-    const res=await fetch("/room_guess",{method:"POST",body:form});const data=await res.json();
+    form.append("room_id", roomId);
+    form.append("user_id", userId);
+    form.append("guess", currentGuess);
+    const res=await fetch("/room_guess",{method:"POST",body:form});
+    const data=await res.json();
     const li=document.createElement("li");
     li.innerText=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
     document.getElementById("history").appendChild(li);
     if(data.completed)alert(`🎉 You guessed in ${data.turns} turns!`);
     if(data.room_completed)pollRoomStatus(true);
-    clearGuess();
+    currentGuess=""; updateDisplay("mpKeypad");
 }
 
 async function pollRoomStatus(force=false){
@@ -160,13 +214,9 @@ async function sendMessage(){
     const form=new FormData();
     form.append("room_id",roomId);form.append("user_id",userId);form.append("username",username);form.append("message",msg);
     await fetch("/send_message",{method:"POST",body:form});
-    document.getElementById("chatMsg").value="";
-    loadChat();
+    document.getElementById("chatMsg").value=""; loadChat();
 }
-
-async function pollChat(){
-    await loadChat(); chatPoller=setTimeout(pollChat,2000);
-}
+async function pollChat(){ await loadChat(); chatPoller=setTimeout(pollChat,2000);}
 async function loadChat(){
     const res=await fetch(`/get_messages?room_id=${roomId}`);
     const msgs=await res.json();
