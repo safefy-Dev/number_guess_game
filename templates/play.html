@@ -21,6 +21,12 @@
 
 <h2>🎯 Multiplayer Number Guess + Chat</h2>
 
+<script>
+const userId = "{{ user_id }}";
+const username = "{{ username }}";
+let currentGuess="", roomId=null, roomCode=null, poller=null, chatPoller=null;
+</script>
+
 <div class="torn-paper" id="setupArea">
     <h3>Create or Join Game</h3>
     <div><button onclick="showCreate()">Create Room</button> <button onclick="showJoin()">Join Room</button></div>
@@ -62,11 +68,6 @@
 </div>
 
 <script>
-const userId = "{{ user_id }}";
-const username = "{{ username }}";
-let currentGuess="", roomId=null, roomCode=null, poller=null, chatPoller=null;
-
-
 function showCreate(){document.getElementById("createDiv").style.display="block";document.getElementById("joinDiv").style.display="none";}
 function showJoin(){document.getElementById("createDiv").style.display="none";document.getElementById("joinDiv").style.display="block";}
 function toggleSecret(){document.getElementById("secretDiv").style.display=(document.getElementById("mode").value==="2player")?"block":"none";}
