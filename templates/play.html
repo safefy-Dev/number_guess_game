@@ -62,8 +62,10 @@
 </div>
 
 <script>
+const userId = "{{ user_id }}";
+const username = "{{ username }}";
 let currentGuess="", roomId=null, roomCode=null, poller=null, chatPoller=null;
-const userId="YOUR_USER_ID", username="YOUR_USERNAME";
+
 
 function showCreate(){document.getElementById("createDiv").style.display="block";document.getElementById("joinDiv").style.display="none";}
 function showJoin(){document.getElementById("createDiv").style.display="none";document.getElementById("joinDiv").style.display="block";}

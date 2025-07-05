@@ -70,7 +70,16 @@ async def play_page(request: Request):
     user_id = get_current_user(request)
     if not user_id:
         return RedirectResponse("/login", status_code=302)
-    return templates.TemplateResponse("play.html", {"request": request})
+
+    user_data = supabase.table("users").select("*").eq("id", user_id).single().execute().data
+    username = user_data["username"]
+
+    return templates.TemplateResponse("multiplayer.html", {
+        "request": request,
+        "user_id": user_id,
+        "username": username
+    })
+
 
 @app.post("/start_game")
 async def start_game(num_digits: int = Form(...), request: Request = None):
