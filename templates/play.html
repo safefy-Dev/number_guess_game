@@ -27,7 +27,6 @@
     <button onclick="showMulti()">🤝 Multiplayer</button>
 </div>
 
-<!-- Single Player -->
 <div class="torn-paper" id="singleArea" style="display:none;">
     <h3>Single Player</h3>
     <label>Digits: <input type="number" id="spDigits" min="3" max="8" value="4"></label><br><br>
@@ -38,10 +37,10 @@
         <div class="guess-display" id="spGuessDisplay"></div>
         <div class="keypad" id="spPad"></div>
         <ul id="spHistory"></ul>
+        <button onclick="goBackFromGame()">⬅ Back</button>
     </div>
 </div>
 
-<!-- Multiplayer -->
 <div class="torn-paper" id="multiArea" style="display:none;">
     <h3>Create or Join Room</h3>
     <div>
@@ -70,6 +69,8 @@
     <div class="guess-display" id="mpGuessDisplay"></div>
     <div class="keypad" id="mpPad"></div>
     <ul id="mpHistory"></ul>
+    <button onclick="goBackFromGame()">⬅ Back</button>
+
     <div class="torn-paper" style="margin-top:1rem;">
         <h3>💬 Chat</h3>
         <ul id="chatBox" style="height:150px;overflow-y:auto;"></ul>
@@ -113,7 +114,6 @@ function createKeypad(container, type){
     let g=document.createElement("button"); g.textContent="Guess";
     g.onclick=()=>makeGuess(type); container.appendChild(g);
 }
-
 function addDigit(d,type){
     currentGuess+=d;
     if(type==="single") document.getElementById("spGuessDisplay").textContent=currentGuess;
@@ -130,6 +130,16 @@ function goBack(){
     document.getElementById("menuArea").style.display="block";
     document.getElementById("createDiv").style.display="none";
     document.getElementById("joinDiv").style.display="none";
+}
+function goBackFromGame(){
+    document.getElementById("mpGameArea").style.display="none";
+    document.getElementById("spGame").style.display="none";
+    document.getElementById("singleArea").style.display="none";
+    document.getElementById("multiArea").style.display="none";
+    document.getElementById("menuArea").style.display="block";
+    currentGuess="";
+    clearGuess("single");
+    clearGuess("multi");
 }
 
 function showSingle(){document.getElementById("menuArea").style.display="none";document.getElementById("singleArea").style.display="block";}
@@ -154,6 +164,9 @@ async function makeGuess(type){
         form.append("game_id",gameId);form.append("guess",currentGuess);
         const res=await fetch("/guess",{method:"POST",body:form});
         const data=await res.json();
+        if(data.error){
+            alert(data.error); return;
+        }
         let li=document.createElement("li");
         li.textContent=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
         document.getElementById("spHistory").appendChild(li);
@@ -164,6 +177,9 @@ async function makeGuess(type){
         form.append("room_id",roomId);form.append("user_id",userId);form.append("guess",currentGuess);
         const res=await fetch("/room_guess",{method:"POST",body:form});
         const data=await res.json();
+        if(data.error){
+            alert(data.error); return;
+        }
         let li=document.createElement("li");
         li.textContent=`Guess: ${currentGuess} → In: ${data.numbers_correct}, Place: ${data.positions_correct}`;
         document.getElementById("mpHistory").appendChild(li);
@@ -172,6 +188,7 @@ async function makeGuess(type){
         clearGuess("multi");
     }
 }
+
 
 async function createRoom(){
     const form=new FormData();

@@ -119,19 +119,61 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
     return {"numbers_correct": numbers_correct,"positions_correct": positions_correct,"completed": completed,"turns": turns}
 
 # ----------------- Multiplayer
-@app.post("/create_room")
-async def create_room(user_id: str = Form(...), username: str = Form(...), mode: str = Form(...), num_digits: int = Form(...), winning_type: str = Form(...), secret_number: str = Form(None)):
-    room_code = generate_room_code()
-    secret = secret_number if mode == "2player" else ''.join([str(random.randint(0,9)) for _ in range(num_digits)])
-    room = supabase.table("rooms").insert({
-        "room_code": room_code,
-        "mode": mode,
-        "created_by": user_id,
-        "secret_number": secret,
-        "num_digits": num_digits,
-        "winning_type": winning_type
-    }).execute().data[0]
-    return {"room_code": room_code, "room_id": room["id"]}
+@app.post("/guess")
+async def guess(game_id: str = Form(...), guess: str = Form(...), request: Request = None):
+    user_id = get_current_user(request)
+    game = supabase.table("games").select("*").eq("id", game_id).single().execute().data
+    secret = game["secret_number"]
+    
+    # Enforce length match
+    if len(guess) != len(secret):
+        return {"error": f"Your guess must have exactly {len(secret)} digits."}
+    
+    numbers_correct, positions_correct = calculate_guess(secret, guess)
+    turns = (game["turns"] or 0) + 1
+    completed = (positions_correct == len(secret))
+    supabase.table("guesses").insert({
+        "id": str(uuid.uuid4()),
+        "game_id": game_id,
+        "guess": guess,
+        "numbers_correct": numbers_correct,
+        "positions_correct": positions_correct
+    }).execute()
+    supabase.table("games").update({
+        "turns": turns, "is_completed": completed
+    }).eq("id", game_id).execute()
+    return {"numbers_correct": numbers_correct, "positions_correct": positions_correct, "completed": completed, "turns": turns}
+
+
+@app.post("/room_guess")
+async def room_guess(room_id: str = Form(...), user_id: str = Form(...), guess: str = Form(...)):
+    room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
+    secret = room["secret_number"]
+    
+    # Enforce length match
+    if len(guess) != len(secret):
+        return {"error": f"Your guess must have exactly {len(secret)} digits."}
+    
+    numbers_correct, positions_correct = calculate_guess(secret, guess)
+    record_data = supabase.table("room_guesses").select("*").eq("room_id", room_id).eq("user_id", user_id).execute().data
+    if not record_data:
+        record = supabase.table("room_guesses").insert({
+            "room_id": room_id, "user_id": user_id, "username": "", 
+            "turns": 0, "completed": False, "numbers_correct": 0, "positions_correct": 0
+        }).execute().data[0]
+    else:
+        record = record_data[0]
+    turns = (record["turns"] or 0) + 1
+    completed = (positions_correct == len(secret))
+    supabase.table("room_guesses").update({
+        "turns": turns, "last_guess": guess,
+        "numbers_correct": numbers_correct, "positions_correct": positions_correct,
+        "completed": completed
+    }).eq("id", record["id"]).execute()
+    if completed and room["winning_type"] == "fastest" and not room["is_completed"]:
+        supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
+    current_room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
+    return {"numbers_correct": numbers_correct, "positions_correct": positions_correct, "turns": turns, "completed": completed, "room_completed": current_room["is_completed"]}
 
 @app.post("/join_room")
 async def join_room(room_code: str = Form(...), user_id: str = Form(...), username: str = Form(...)):
@@ -149,25 +191,6 @@ async def join_room(room_code: str = Form(...), user_id: str = Form(...), userna
         }).execute()
     return {"room": room}
 
-@app.post("/room_guess")
-async def room_guess(room_id: str = Form(...), user_id: str = Form(...), guess: str = Form(...)):
-    room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
-    secret = room["secret_number"]
-    numbers_correct, positions_correct = calculate_guess(secret, guess, strict=False)
-    record = supabase.table("room_guesses").select("*").eq("room_id", room_id).eq("user_id", user_id).single().execute().data
-    turns = (record["turns"] or 0) + 1
-    completed = (positions_correct == len(secret))
-    supabase.table("room_guesses").update({
-        "turns": turns,
-        "last_guess": guess,
-        "numbers_correct": numbers_correct,
-        "positions_correct": positions_correct,
-        "completed": completed
-    }).eq("id", record["id"]).execute()
-    if completed and room["winning_type"] == "fastest" and not room["is_completed"]:
-        supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
-    current_room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
-    return {"numbers_correct": numbers_correct, "positions_correct": positions_correct, "turns": turns, "completed": completed, "room_completed": current_room["is_completed"]}
 
 @app.get("/room_status")
 async def room_status(room_id: str):
