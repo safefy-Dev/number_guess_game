@@ -1,12 +1,99 @@
-<h2>Number Guess Game</h2>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Number Guess Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 1rem;
+            max-width: 600px;
+            margin: auto;
+        }
+        h2 {
+            text-align: center;
+        }
+        .game-card, .leaderboard-card {
+            background: #f9f9f9;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        input[type="text"], input[type="number"] {
+            padding: 0.5rem;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0.5rem 0;
+        }
+        button {
+            padding: 0.6rem 1rem;
+            margin: 0.3rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            background: #3498db;
+            color: white;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            margin: 0.3rem 0;
+            background: #e0e0e0;
+            padding: 0.4rem;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
 
-<button onclick="startGame(4)">Start 4 Digit Game</button>
-<button onclick="startGame(5)">Start 5 Digit Game</button>
+<h2>🎯 Number Guess Game & Leaderboard</h2>
 
-<div id="game" style="display:none;">
-    <input type="text" id="guessInput" placeholder="Enter your guess">
-    <button onclick="makeGuess()">Guess</button>
-    <ul id="history"></ul>
+<div class="game-card">
+    <h3>Start New Game</h3>
+    <input type="number" id="digitCount" min="3" max="8" value="4">
+    <button onclick="startGame(document.getElementById('digitCount').value)">Start Game</button>
+
+    <div id="game" style="display:none;">
+        <h3>Make Your Guess</h3>
+        <input type="text" id="guessInput" placeholder="Enter your guess">
+        <button onclick="makeGuess()">Guess</button>
+        <ul id="history"></ul>
+    </div>
+</div>
+
+<div class="leaderboard-card">
+    <h3>🏆 Leaderboard</h3>
+    <ul id="leaderboardList">
+        <!-- Leaderboard filled by JS -->
+    </ul>
 </div>
 
 <script src="/static/script.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", loadLeaderboard);
+
+async function loadLeaderboard() {
+    let res = await fetch("/leaderboard");
+    let html = await res.text();
+    let tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    let players = tmp.querySelectorAll("tr");
+    let list = document.getElementById("leaderboardList");
+    list.innerHTML = "";
+    players.forEach((row, idx) => {
+        if(idx === 0) return; // skip header
+        let cols = row.querySelectorAll("td");
+        if(cols.length) {
+            let li = document.createElement("li");
+            li.textContent = `${cols[0].textContent} - ${cols[1].textContent} turns`;
+            list.appendChild(li);
+        }
+    });
+}
+</script>
+
+</body>
+</html>
