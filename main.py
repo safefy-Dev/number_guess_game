@@ -91,8 +91,8 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
     game = supabase.table("games").select("*").eq("id", game_id).single().execute().data
     secret = game["secret_number"]
 
-    # Core game logic
-    numbers_correct = sum(min(secret.count(d), guess.count(d)) for d in set(secret))
+    # NEW logic matching your described style
+    numbers_correct = sum(1 for d in guess if d in secret)
     positions_correct = sum(1 for a, b in zip(secret, guess) if a == b)
 
     supabase.table("guesses").insert({
