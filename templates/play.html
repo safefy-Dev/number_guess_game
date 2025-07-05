@@ -87,24 +87,24 @@
 <div class="torn-paper">
     <h3>Start New Game</h3>
     <input type="number" id="digitCount" min="3" max="8" value="4">
-    <button onclick="startGame(document.getElementById('digitCount').value)" ontouchstart="startGame(document.getElementById('digitCount').value)">Start Game</button>
+    <button id="startBtn">Start Game</button>
 
     <div id="game" style="display:none;">
         <h3>Make Your Guess</h3>
         <div class="guess-display" id="guessDisplay"></div>
         <div class="keypad">
-            <button onclick="addDigit('1')" ontouchstart="addDigit('1')">1</button>
-            <button onclick="addDigit('2')" ontouchstart="addDigit('2')">2</button>
-            <button onclick="addDigit('3')" ontouchstart="addDigit('3')">3</button>
-            <button onclick="addDigit('4')" ontouchstart="addDigit('4')">4</button>
-            <button onclick="addDigit('5')" ontouchstart="addDigit('5')">5</button>
-            <button onclick="addDigit('6')" ontouchstart="addDigit('6')">6</button>
-            <button onclick="addDigit('7')" ontouchstart="addDigit('7')">7</button>
-            <button onclick="addDigit('8')" ontouchstart="addDigit('8')">8</button>
-            <button onclick="addDigit('9')" ontouchstart="addDigit('9')">9</button>
-            <button onclick="addDigit('0')" ontouchstart="addDigit('0')">0</button>
-            <button class="clear-btn" onclick="clearGuess()" ontouchstart="clearGuess()">Clear</button>
-            <button onclick="makeGuess()" ontouchstart="makeGuess()">Guess</button>
+            <button>1</button>
+            <button>2</button>
+            <button>3</button>
+            <button>4</button>
+            <button>5</button>
+            <button>6</button>
+            <button>7</button>
+            <button>8</button>
+            <button>9</button>
+            <button>0</button>
+            <button class="clear-btn">Clear</button>
+            <button>Guess</button>
         </div>
         <ul id="history"></ul>
     </div>
@@ -118,6 +118,36 @@
 <script>
 let gameId = null;
 let currentGuess = "";
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadLeaderboard();
+    setupButtons();
+});
+
+function setupButtons() {
+    const isTouch = 'ontouchstart' in window;
+    const buttons = document.querySelectorAll('.keypad button');
+    const startBtn = document.getElementById("startBtn");
+    if (isTouch) {
+        startBtn.addEventListener("touchstart", () => startGame(document.getElementById('digitCount').value));
+    } else {
+        startBtn.addEventListener("click", () => startGame(document.getElementById('digitCount').value));
+    }
+
+    buttons.forEach(btn => {
+        const val = btn.textContent.trim();
+        if (val === "Clear") {
+            isTouch ? btn.addEventListener("touchstart", clearGuess)
+                    : btn.addEventListener("click", clearGuess);
+        } else if (val === "Guess") {
+            isTouch ? btn.addEventListener("touchstart", makeGuess)
+                    : btn.addEventListener("click", makeGuess);
+        } else {
+            isTouch ? btn.addEventListener("touchstart", () => addDigit(val))
+                    : btn.addEventListener("click", () => addDigit(val));
+        }
+    });
+}
 
 async function startGame(digits) {
     const form = new FormData();
@@ -167,9 +197,6 @@ async function makeGuess() {
     }
     clearGuess();
 }
-
-
-document.addEventListener("DOMContentLoaded", loadLeaderboard);
 
 async function loadLeaderboard() {
     let res = await fetch("/leaderboard");
