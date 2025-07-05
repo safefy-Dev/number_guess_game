@@ -1,5 +1,12 @@
+<h2>Number Guess Game</h2>
 
-<html><body>
-<h2>Game Area</h2>
-<p>Welcome to the game! (implement JS game here)</p>
-</body></html>
+<button onclick="startGame(4)">Start 4 Digit Game</button>
+<button onclick="startGame(5)">Start 5 Digit Game</button>
+
+<div id="game" style="display:none;">
+    <input type="text" id="guessInput" placeholder="Enter your guess">
+    <button onclick="makeGuess()">Guess</button>
+    <ul id="history"></ul>
+</div>
+
+<script src="/static/script.js"></script>
