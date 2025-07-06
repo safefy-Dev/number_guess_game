@@ -130,7 +130,12 @@ function resetAll(){
     document.getElementById("createDiv").style.display="none";
     document.getElementById("joinDiv").style.display="none";
     clearGuess("single"); clearGuess("multi");
+    // ✅ clear previous turn history + summary
+    document.getElementById("spHistory").innerHTML = "";
+    document.getElementById("mpHistory").innerHTML = "";
+    document.getElementById("summaryList").innerHTML = "";
 }
+
 function showSingle(){resetAll();document.getElementById("menuArea").style.display="none";document.getElementById("singleArea").style.display="block";}
 function showMulti(){resetAll();document.getElementById("menuArea").style.display="none";document.getElementById("multiArea").style.display="block";}
 function showCreate(){document.getElementById("createDiv").style.display="block";document.getElementById("joinDiv").style.display="none";}
