@@ -30,15 +30,19 @@ ul{list-style:none;padding:0;} li{margin:0.3rem 0;background:#eee;padding:0.4rem
 <div class="torn-paper" id="singleArea" style="display:none;">
     <h3>Single Player</h3>
     <label>Digits: <input type="number" id="spDigits" min="3" max="8" value="4"></label><br><br>
-    <label><input type="checkbox" id="spStrict" checked> Traditional Strict Mode</label><br><br>
-    <button onclick="startSingle()">Start Game</button>
+    <label><input type="checkbox" id="spStrict" checked onchange="updateSpRule()"> Traditional Strict Mode</label>
+    <div id="spRuleDesc" style="font-size:0.9rem; color:#555; margin-top:4px;">
+        Counts each matching digit only once, like Bulls & Cows.
+    </div><br>
+    <button onclick="startSingle()">Start New Game</button>
     <button onclick="goBack()">⬅ Back</button>
     <div id="spGame" style="display:none;">
         <div class="guess-display" id="spGuessDisplay"></div>
         <div class="keypad" id="spPad"></div>
         <ul id="spHistory"></ul>
+        <button onclick="startSingle()">🔄 New Game</button>
         <button onclick="goBackFromGame()">⬅ Back</button>
-    </div>
+    </div>    
 </div>
 
 <div class="torn-paper" id="multiArea" style="display:none;">
@@ -52,7 +56,10 @@ ul{list-style:none;padding:0;} li{margin:0.3rem 0;background:#eee;padding:0.4rem
         <label>Mode: <select id="mode" onchange="toggleSecret()"><option value="bot">Bot</option><option value="2player">2 Player</option></select></label><br><br>
         <label>Winning: <select id="winningType"><option value="fastest">Fastest</option><option value="lowest">Least Turns</option></select></label><br><br>
         <label>Digits: <input type="number" id="numDigits" min="3" max="8" value="4"></label><br><br>
-        <label><input type="checkbox" id="mpStrict" checked> Traditional Strict Mode</label><br><br>
+        <label><input type="checkbox" id="mpStrict" checked onchange="updateMpRule()"> Traditional Strict Mode</label>
+        <div id="mpRuleDesc" style="font-size:0.9rem; color:#555; margin-top:4px;">
+            Counts each matching digit only once, like Bulls & Cows.
+        </div><br>
         <div id="secretDiv" style="display:none;"><label>Secret: <input type="text" id="secretNumber"></label><br><br></div>
         <button onclick="createRoom()">Create</button>
         <button onclick="goBack()">⬅ Back</button>
@@ -70,7 +77,10 @@ ul{list-style:none;padding:0;} li{margin:0.3rem 0;background:#eee;padding:0.4rem
     <div class="guess-display" id="mpGuessDisplay"></div>
     <div class="keypad" id="mpPad"></div>
     <ul id="mpHistory"></ul>
+    <!-- ✅ NEW GAME BUTTON FOR MULTIPLAYER -->
+    <button onclick="showMulti()">🔄 New Room</button>
     <button onclick="goBackFromGame()">⬅ Back</button>
+    
     <div class="torn-paper" style="margin-top:1rem;">
         <h3>💬 Chat</h3>
         <ul id="chatBox" style="height:150px;overflow-y:auto;"></ul>
@@ -83,12 +93,28 @@ ul{list-style:none;padding:0;} li{margin:0.3rem 0;background:#eee;padding:0.4rem
     </div>
 </div>
 
+
 <div class="torn-paper">
     <h3>🏆 Leaderboard</h3>
     <ul id="leaderboardList"></ul>
 </div>
 
 <script>
+function updateSpRule(){
+    let txt = document.getElementById("spStrict").checked 
+        ? "Counts each matching digit only once, like Bulls & Cows."
+        : "Counts every occurrence, even repeated digits.";
+    document.getElementById("spRuleDesc").textContent = txt;
+}
+function updateMpRule(){
+    let txt = document.getElementById("mpStrict").checked 
+        ? "Counts each matching digit only once, like Bulls & Cows."
+        : "Counts every occurrence, even repeated digits.";
+    document.getElementById("mpRuleDesc").textContent = txt;
+}
+
+
+
 const userId="{{ user_id }}";
 const username="{{ username }}";
 let currentGuess="", gameId=null, roomId=null, roomCode=null, requiredLength=0, spPad, mpPad;
