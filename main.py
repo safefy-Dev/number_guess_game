@@ -24,14 +24,14 @@ def get_current_user(request: Request):
     return sessions.get(session_id)
 
 # ----------------- Helpers
-def calculate_guess(secret: str, guess: str):
-    positions_correct = sum(1 for s, g in zip(secret, guess) if s == g)
-    secret_remaining = [s for s, g in zip(secret, guess) if s != g]
-    guess_remaining = [g for s, g in zip(secret, guess) if s != g]
-    secret_count = Counter(secret_remaining)
-    guess_count = Counter(guess_remaining)
-    numbers_correct = sum(min(secret_count[d], guess_count[d]) for d in guess_count)
-    total_correct = positions_correct + numbers_correct
+def calculate_guess(secret: str, guess: str, strict: bool = True):
+    positions_correct = sum(1 for a, b in zip(secret, guess) if a == b)
+    if strict:
+        s_count = Counter(secret)
+        g_count = Counter(guess)
+        total_correct = sum((s_count & g_count).values())
+    else:
+        total_correct = sum(1 for d in guess if d in secret)
     return total_correct, positions_correct
 
 def generate_room_code():
@@ -98,7 +98,7 @@ async def start_game(num_digits: int = Form(...), request: Request = None):
     return {"game_id": game_id}
 
 @app.post("/guess")
-async def guess(game_id: str = Form(...), guess: str = Form(...), request: Request = None):
+async def guess(game_id: str = Form(...), guess: str = Form(...), strict: bool = Form(True), request: Request = None):
     user_id = get_current_user(request)
     game = supabase.table("games").select("*").eq("id", game_id).single().execute().data
     secret = game["secret_number"]
@@ -106,7 +106,7 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
     if len(guess) != len(secret):
         return {"error": f"Your guess must have exactly {len(secret)} digits."}
 
-    total_correct, positions_correct = calculate_guess(secret, guess)
+    total_correct, positions_correct = calculate_guess(secret, guess, strict)
     turns = (game["turns"] or 0) + 1
     completed = (positions_correct == len(secret))
 
@@ -125,14 +125,15 @@ async def guess(game_id: str = Form(...), guess: str = Form(...), request: Reque
 
 # ----------------- Multiplayer
 @app.post("/room_guess")
-async def room_guess(room_id: str = Form(...), user_id: str = Form(...), username: str = Form(...), guess: str = Form(...)):
+async def room_guess(room_id: str = Form(...), user_id: str = Form(...), username: str = Form(...),
+                     guess: str = Form(...), strict: bool = Form(True)):
     room = supabase.table("rooms").select("*").eq("id", room_id).single().execute().data
     secret = room["secret_number"]
 
     if len(guess) != len(secret):
         return {"error": f"Your guess must have exactly {len(secret)} digits."}
 
-    total_correct, positions_correct = calculate_guess(secret, guess)
+    total_correct, positions_correct = calculate_guess(secret, guess, strict)
 
     record_data = supabase.table("room_guesses").select("*").eq("room_id", room_id).eq("user_id", user_id).execute().data
     if not record_data:
@@ -155,27 +156,19 @@ async def room_guess(room_id: str = Form(...), user_id: str = Form(...), usernam
     if room["winning_type"] == "fastest":
         if completed and not room["is_completed"]:
             supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
-
     elif room["winning_type"] == "lowest":
         all_players = supabase.table("room_guesses").select("*").eq("room_id", room_id).execute().data
         finished_players = [p for p in all_players if p["completed"]]
-
         if finished_players:
             lowest_turns = min(p["turns"] for p in finished_players)
             cannot_win = all(p["completed"] or p["turns"] > lowest_turns for p in all_players)
-            if cannot_win:
+            if cannot_win or len(finished_players) == len(all_players):
                 supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
 
-        if len(finished_players) == len(all_players):
-            supabase.table("rooms").update({"is_completed": True}).eq("id", room_id).execute()
-
-    # Only update leaderboard if vs bot mode
     if completed and room["mode"] == "bot":
         existing_lb = supabase.table("leaderboard").select("*").eq("username", username).execute().data
         if not existing_lb:
-            supabase.table("leaderboard").insert({
-                "username": username, "best_turns": turns
-            }).execute()
+            supabase.table("leaderboard").insert({"username": username, "best_turns": turns}).execute()
         else:
             best_turns = existing_lb[0]["best_turns"]
             if turns < best_turns:
