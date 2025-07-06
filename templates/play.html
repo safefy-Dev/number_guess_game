@@ -77,8 +77,7 @@ ul{list-style:none;padding:0;} li{margin:0.3rem 0;background:#eee;padding:0.4rem
     <div class="guess-display" id="mpGuessDisplay"></div>
     <div class="keypad" id="mpPad"></div>
     <ul id="mpHistory"></ul>
-    <!-- ✅ NEW GAME BUTTON FOR MULTIPLAYER -->
-    <button onclick="showMulti()">🔄 New Room</button>
+    <button onclick="newRoomGame()">🔄 New Game In Same Room</button>
     <button onclick="goBackFromGame()">⬅ Back</button>
     
     <div class="torn-paper" style="margin-top:1rem;">
@@ -92,6 +91,7 @@ ul{list-style:none;padding:0;} li{margin:0.3rem 0;background:#eee;padding:0.4rem
         <ul id="summaryList"></ul>
     </div>
 </div>
+
 
 
 <div class="torn-paper">
@@ -215,6 +215,7 @@ async function makeGuess(type){
 
 async function createRoom(){
     const form=new FormData();
+    currentRoomMode = document.getElementById("mode").value;
     form.append("user_id",userId);
     form.append("username",username);
     form.append("mode",document.getElementById("mode").value);
@@ -235,11 +236,35 @@ async function createRoom(){
 async function joinRoom(){
     const form=new FormData();
     form.append("room_code",document.getElementById("roomCode").value);
-    form.append("user_id",userId);form.append("username",username);
-    const res=await fetch("/join_room",{method:"POST",body:form});const data=await res.json();
-    roomId=data.room.id;roomCode=data.room.room_code;requiredLength=data.room.num_digits;
-    document.getElementById("showRoomCode").textContent=roomCode;startMulti();
+    form.append("user_id",userId);
+    form.append("username",username);
+
+    const res=await fetch("/join_room",{method:"POST",body:form});
+    const data=await res.json();
+
+    roomId = data.room.id;
+    roomCode = data.room.room_code;
+    requiredLength = data.room.num_digits;
+    document.getElementById("showRoomCode").textContent = roomCode;
+
+    // ✅ NEW: if 2player mode, prompt this player to set secret for other
+    if(data.room.mode === "2player"){
+        let yourSecret = prompt("Set a secret number for your opponent to guess:");
+        if(yourSecret && yourSecret.length === data.room.num_digits){
+            const setForm = new FormData();
+            setForm.append("room_id", roomId);
+            setForm.append("user_id", userId);
+            setForm.append("secret_number", yourSecret);
+            await fetch("/set_secret_for_other", {method:"POST", body: setForm});
+        } else {
+            alert("Secret must be " + data.room.num_digits + " digits.");
+        }
+    }
+
+    startMulti();
 }
+
+
 
 function startMulti(){
     if(!roomId){alert("Room ID missing.");return;}
@@ -268,6 +293,36 @@ async function loadLeaderboard(){
     const res=await fetch("/leaderboard");const data=await res.json();let list=document.getElementById("leaderboardList");list.innerHTML="";
     data.forEach(p=>{let li=document.createElement("li");li.textContent=`${p.username}: ${p.best_turns} turns`;list.appendChild(li);});
 }
+async function newRoomGame(){
+    if (!roomId) { alert("No active room"); return; }
+    let newSecret = null;
+    if(currentRoomMode === "2player"){
+        newSecret = prompt("Enter new secret number for your opponent:");
+        if (!newSecret) return;
+    }
+
+    const form = new FormData();
+    form.append("room_id", roomId);
+    form.append("user_id", userId);
+    form.append("mode", currentRoomMode);
+    form.append("num_digits", requiredLength);
+    form.append("traditional", document.getElementById("mpStrict").checked ? "true" : "false");
+    if(currentRoomMode === "2player"){
+        form.append("secret_number", newSecret);
+    }
+
+    await fetch("/new_room_game", {method:"POST", body:form});
+
+    // reset game state
+    clearGuess("multi");
+    document.getElementById("mpHistory").innerHTML = "";
+    document.getElementById("summaryList").innerHTML = "";
+    document.getElementById("summaryArea").style.display = "none";
+    alert("🎉 New game started in same room!");
+}
+
+
+
 </script>
 </body>
 </html>
